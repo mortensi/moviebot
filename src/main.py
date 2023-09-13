@@ -1,9 +1,10 @@
 import streamlit as st
 import uuid
 from sentence_transformers import SentenceTransformer
-from config import AppConfig
+from common.config import AppConfig
 from dotenv import load_dotenv
-from common.utils import vss
+from common.utils import vss, store_conversation
+from src.common.llm import getOpenAIGPT35
 
 # Load Global env
 load_dotenv()
@@ -28,13 +29,17 @@ def render():
             st.markdown(message["content"])
 
     # React to user input
-    if prompt := st.chat_input("Search the movie database"):
+    if question := st.chat_input("Search the movie database"):
         # Display user message in chat message container and user message to chat history
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.chat_message("user").markdown(question)
+        st.session_state.messages.append({"role": "user", "content": question})
 
         # Build response
-        response = vss(model, prompt)
+        prompt = vss(model, question)
+        response = getOpenAIGPT35(prompt)
+
+        # Store the interaction
+        store_conversation(question, prompt, response)
 
         # Display assistant response in chat message container and add assistant response to chat history
         st.chat_message("assistant").markdown(response)

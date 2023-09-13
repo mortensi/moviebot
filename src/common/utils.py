@@ -5,7 +5,7 @@ import csv
 
 from redis.commands.search.query import Query
 from sentence_transformers import SentenceTransformer
-from config import AppConfig
+from src.common.config import AppConfig
 from redis.commands.search.field import TextField, TagField, VectorField, NumericField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
@@ -23,17 +23,23 @@ def load():
 def create_embeddings():
     model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
     for key in get_db().scan_iter(match='movie:*'):
-        result = get_db().json().get(key, "$.names", "$.overview")
-        content = result['$.names'][0] + ". " + result['$.overview'][0]
-        get_db().json().set(key, "$.overview_embedding", get_embedding_list(model, content))
+        result = get_db().json().get(key, "$.names", "$.overview", "$.crew", "$.score", "$.genre")
+        movie = f"movie title is: {result['$.names'][0]}\n"
+        movie += f"movie genre is: {result['$.genre'][0]}\n"
+        movie += f"movie crew is: {result['$.crew'][0]}\n"
+        movie += f"movie score is: {result['$.score'][0]}\n"
+        movie += f"movie overview is: {result['$.overview'][0]}\n"
+        print(movie)
+        get_db().json().set(key, "$.overview_embedding", get_embedding_list(model, movie))
 
 
 def vss(model, query):
     context = ""
+    prompt = ""
     q = Query("@embedding:[VECTOR_RANGE $radius $vec]=>{$YIELD_DISTANCE_AS: score}") \
         .sort_by("score", asc=True) \
-        .return_fields("overview", "names", "score") \
-        .paging(0, 1) \
+        .return_fields("overview", "names", "score", "$.crew", "$.genre", "$.score") \
+        .paging(0, 3) \
         .dialect(2)
 
     # Find all vectors within VSS_MINIMUM_SCORE of the query vector
@@ -48,9 +54,32 @@ def vss(model, query):
         it = iter(res.docs[0:])
         for x in it:
             print("the score is: " + str(x['score']))
-            context = context + str(x['names']) + ". " + str(x['overview'])
+            movie = f"movie title is: {x['names']}\n"
+            movie += f"movie genre is: {x['$.genre']}\n"
+            movie += f"movie crew is: {x['$.crew']}\n"
+            movie += f"movie score is: {x['$.score']}\n"
+            movie += f"movie overview is: {x['overview']}\n"
+            context += movie + "\n"
+        print(context)
 
-    return context
+
+    if len(context) > 0:
+        prompt = '''Use the provided information to answer the search query the user has sent.
+            The information in the database provides three movies, chose the one or the ones that fit most.
+            If you can't answer the user's question, say "Sorry, I am unable to answer the question, try to refine your question". Do not guess. You must deduce the answer exclusively from the information provided. 
+            The answer must be formatted in markdown or HTML.
+            Do not make things up. Do not add personal opinions. Do not add any disclaimer.
+
+            Search query: 
+
+            {}
+
+            Information in the database: 
+
+            {}
+            '''.format(query, context)
+
+    return prompt
 
 
 def create_index():
@@ -76,6 +105,13 @@ def get_embedding_list(model, text):
 def get_embedding_blob(model, text):
     embedding = model.encode(text).astype(np.float32).tobytes()
     return embedding
+
+
+def store_conversation(question, prompt, response):
+    data = {'question': question,
+            'prompt': prompt,
+            'response': response}
+    get_db().xadd("moviebot:conversation", data)
 
 
 def get_db(decode=True):
