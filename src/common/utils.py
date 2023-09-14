@@ -6,31 +6,48 @@ import csv
 from redis.commands.search.query import Query
 from sentence_transformers import SentenceTransformer
 from src.common.config import AppConfig
-from redis.commands.search.field import TextField, TagField, VectorField, NumericField
+from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+
+
+def moviebot_init():
+    print("Checking if Moviebot is installed")
+    if (get_db().get("moviebot:status") is None):
+        get_db().set("moviebot:status", "installing")
+        print("Moviebot is not installed, installing it...")
+        create_index()
+        load()
+        create_embeddings()
+        get_db().set("moviebot:status", "installed")
+        print("Moviebot is now installed")
+    else:
+        print("Moviebot is already installed")
 
 
 # from src.common.utils import *
 def load():
+    conn = get_db()
     with open(AppConfig.DATA_PATH, encoding='utf-8') as csvf:
         csvReader = csv.DictReader(csvf)
         cnt = 0
         for row in csvReader:
-            get_db().json().set(f'movie:{cnt}', '$', row)
+            conn.json().set(f'moviebot:movie:{cnt}', '$', row)
             cnt = cnt + 1
 
 
 def create_embeddings():
+    conn = get_db()
     model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-    for key in get_db().scan_iter(match='movie:*'):
+    for key in get_db().scan_iter(match='moviebot:movie:*'):
+        print(f"creating the embedding for {key}")
         result = get_db().json().get(key, "$.names", "$.overview", "$.crew", "$.score", "$.genre")
         movie = f"movie title is: {result['$.names'][0]}\n"
         movie += f"movie genre is: {result['$.genre'][0]}\n"
         movie += f"movie crew is: {result['$.crew'][0]}\n"
         movie += f"movie score is: {result['$.score'][0]}\n"
         movie += f"movie overview is: {result['$.overview'][0]}\n"
-        print(movie)
-        get_db().json().set(key, "$.overview_embedding", get_embedding_list(model, movie))
+        movie += f"movie overview is: {result['$.overview'][0]}\n"
+        conn.json().set(key, "$.overview_embedding", get_embedding_list(model, movie))
 
 
 def vss(model, query):
@@ -62,7 +79,6 @@ def vss(model, query):
             context += movie + "\n"
         print(context)
 
-
     if len(context) > 0:
         prompt = '''Use the provided information to answer the search query the user has sent.
             The information in the database provides three movies, chose the one or the ones that fit most.
@@ -85,7 +101,7 @@ def vss(model, query):
 def create_index():
     indexes = get_db().execute_command("FT._LIST")
     if "movie_idx" not in indexes:
-        index_def = IndexDefinition(prefix=["movie:"], index_type=IndexType.JSON)
+        index_def = IndexDefinition(prefix=["moviebot:movie:"], index_type=IndexType.JSON)
         schema = (TextField("$.crew", as_name="crew"),
                   TextField("$.overview", as_name="overview"),
                   TagField("$.genre", as_name="genre"),

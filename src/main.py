@@ -3,13 +3,13 @@ import uuid
 from sentence_transformers import SentenceTransformer
 from common.config import AppConfig
 from dotenv import load_dotenv
-from common.utils import vss, store_conversation
+from common.utils import vss, store_conversation, moviebot_init
 from src.common.llm import getOpenAIGPT35
 
 # Load Global env
 load_dotenv()
-config = AppConfig()
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+moviebot_init()
 
 
 if "session_id" not in st.session_state:
