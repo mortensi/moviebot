@@ -9,6 +9,7 @@ The system uses:
 - Redis Stack as a Vector Database to store the dataset and vectorize the entries to perform [Vector Similarity Search (VSS)](https://redis.io/docs/interact/search-and-query/search/vectors/) for RAG
 - The [IMDB movies dataset](https://www.kaggle.com/datasets/ashpalsingh1525/imdb-movies-dataset), which contains 10000+ movies from the IMDB Movies dataset
 - OpenAI ChatGPT Large Language Model (LLM) [ChatCompletion API](https://platform.openai.com/docs/guides/gpt/chat-completions-api), and concretely the model `gpt-3.5-turbo-0613`
+- The [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) Sentence-Transformers model, which maps sentences & paragraphs to a 384 dimensional dense vector space
 - Streamlit chat's elements, useful for building [conversational apps](https://docs.streamlit.io/knowledge-base/tutorials/build-conversational-apps)
 
 
