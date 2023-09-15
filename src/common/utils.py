@@ -1,3 +1,4 @@
+import json
 import os
 import redis
 import numpy as np
@@ -8,6 +9,24 @@ from sentence_transformers import SentenceTransformer
 from src.common.config import AppConfig
 from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+
+
+def search_by_crew(crew):
+    movies = {}
+
+    rs = get_db().ft("movie_idx") \
+        .search(Query(f"@crew:({crew})")
+                .return_field("names")
+                .return_field("$.score")
+                .paging(0, 50))
+
+    for movie in rs.docs:
+        movies['names'] = movie['$.score']
+
+    movie_info = {
+        "movies": movies
+    }
+    return json.dumps(movie_info)
 
 
 def moviebot_init():
@@ -70,14 +89,13 @@ def vss(model, query):
     if (res is not None) and len(res.docs):
         it = iter(res.docs[0:])
         for x in it:
-            print("the score is: " + str(x['score']))
+            # print("the score is: " + str(x['score']))
             movie = f"movie title is: {x['names']}\n"
             movie += f"movie genre is: {x['$.genre']}\n"
             movie += f"movie crew is: {x['$.crew']}\n"
             movie += f"movie score is: {x['$.score']}\n"
             movie += f"movie overview is: {x['overview']}\n"
             context += movie + "\n"
-        print(context)
 
     if len(context) > 0:
         prompt = '''Use the provided information to answer the search query the user has sent.

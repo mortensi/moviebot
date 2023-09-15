@@ -4,7 +4,7 @@ from sentence_transformers import SentenceTransformer
 from common.config import AppConfig
 from dotenv import load_dotenv
 from common.utils import vss, store_conversation, moviebot_init
-from src.common.llm import getOpenAIGPT35
+from src.common.llm import getOpenAIGPT35, run_conversation
 
 # Load Global env
 load_dotenv()
@@ -38,8 +38,11 @@ def render():
         prompt = vss(model, question)
         response = getOpenAIGPT35(prompt)
 
+        # If you would like to experiment with OpenAI function invokation, comment the previous two lines and uncomment the following
+        # response = run_conversation(model, question)
+
         # Store the interaction
-        store_conversation(question, prompt, response)
+        #store_conversation(question, prompt, response)
 
         # Display assistant response in chat message container and add assistant response to chat history
         st.chat_message("assistant").markdown(response)
