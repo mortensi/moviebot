@@ -124,7 +124,7 @@ def create_index():
                   TextField("$.overview", as_name="overview"),
                   TagField("$.genre", as_name="genre"),
                   TagField("$.names", as_name="names"),
-                  VectorField("$.overview_embedding", "HNSW", {"TYPE": "FLOAT32", "DIM": 384, "DISTANCE_METRIC": "L2"}, as_name="embedding"))
+                  VectorField("$.overview_embedding", "HNSW", {"TYPE": "FLOAT32", "DIM": 384, "DISTANCE_METRIC": "COSINE"}, as_name="embedding"))
         get_db().ft('movie_idx').create_index(schema, definition=index_def)
         print("The index has been created")
     else:
